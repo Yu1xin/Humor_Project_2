@@ -11,7 +11,7 @@ export default function LoginPage() {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
-        // 必须严格匹配作业要求的回调路径
+
         redirectTo: `${window.location.origin}/auth/callback`,
       },
     })

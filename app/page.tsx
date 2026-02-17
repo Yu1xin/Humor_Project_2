@@ -1,8 +1,22 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { createBrowserClient } from '@supabase/ssr'; // 引入这个
-import { useRouter } from 'next/navigation'; // 引入这个
+import { createBrowserClient } from '@supabase/ssr';
+import { useRouter } from 'next/navigation';
+
+function InteractionButton({ emoji }: { emoji: string }) {
+  const [count, setCount] = useState(0);
+  return (
+    <button
+      onClick={() => setCount(count + 1)}
+      className="flex items-center gap-1 hover:bg-gray-100 px-3 py-1 rounded-full transition border border-gray-100 shadow-sm"
+    >
+      <span>{emoji}</span>
+      <span className="text-sm text-gray-600 font-medium">{count}</span>
+    </button>
+  );
+}
+
 
 export default function ListPage() {
   const [contexts, setContexts] = useState<any[]>([]);
@@ -27,7 +41,7 @@ export default function ListPage() {
         return;
       }
 
-     //load data only if logged in
+     // load data only if logged in
       const { data, error } = await supabase
         .from('community_contexts')
         .select('*');
@@ -42,6 +56,9 @@ export default function ListPage() {
 
     checkAuthAndFetch();
   }, [router, supabase]);
+
+  if (loading) return <div className="p-10 text-center">Loading Columbia Wisdom... 🦁</div>;
+  if (error) return <div className="p-10 text-red-500 text-center">Error: {error}</div>;
 
   return (
     <div className="max-w-4xl mx-auto p-8 font-sans">
@@ -66,7 +83,6 @@ export default function ListPage() {
             <p className="text-lg text-gray-800 leading-relaxed mb-6">
               {item.content}
             </p>
-
 
             <div className="flex gap-3 border-t pt-4">
               <InteractionButton emoji="💗" />
