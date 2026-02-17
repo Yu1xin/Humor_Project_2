@@ -1,31 +1,33 @@
 'use client';
-'use client';
 
 import { useState, useEffect } from 'react';
-import { supabase } from '@/lib/supabaseClient';
-
-
-function InteractionButton({ emoji }: { emoji: string }) {
-  const [count, setCount] = useState(0);
-  return (
-    <button
-      onClick={() => setCount(count + 1)}
-      className="flex items-center gap-1 hover:bg-gray-100 px-3 py-1 rounded-full transition border border-gray-100 shadow-sm"
-    >
-      <span>{emoji}</span>
-      <span className="text-sm text-gray-600 font-medium">{count}</span>
-    </button>
-  );
-}
+import { createBrowserClient } from '@supabase/ssr'; // 引入这个
+import { useRouter } from 'next/navigation'; // 引入这个
 
 export default function ListPage() {
   const [contexts, setContexts] = useState<any[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const router = useRouter();
 
+  // initialize supabase
+  const supabase = createBrowserClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  );
 
   useEffect(() => {
-    async function fetchData() {
+    async function checkAuthAndFetch() {
+      // 1. check if the user logged in
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (!session) {
+        // if not logged in, redirect to login page
+        router.push('/login');
+        return;
+      }
+
+     //load data only if logged in
       const { data, error } = await supabase
         .from('community_contexts')
         .select('*');
@@ -37,11 +39,9 @@ export default function ListPage() {
       }
       setLoading(false);
     }
-    fetchData();
-  }, []);
 
-  if (loading) return <div className="p-10 text-center">Loading Columbia Wisdom... 🦁</div>;
-  if (error) return <div className="p-10 text-red-500 text-center">Error: {error}</div>;
+    checkAuthAndFetch();
+  }, [router, supabase]);
 
   return (
     <div className="max-w-4xl mx-auto p-8 font-sans">
