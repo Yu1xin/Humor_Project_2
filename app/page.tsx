@@ -80,7 +80,7 @@ export default function ListPage() {
       // 2. 获取内容数据：从 caption_examples 表取，这里有文本和 UUID
       const { data, error } = await supabase
         .from('caption_examples')
-        .select('id, text'); // 确保列名是 caption_text
+        .select('id, caption'); // 确保列名是 caption_text
 
       if (error) {
         console.error("获取数据失败:", error.message);
@@ -92,7 +92,7 @@ export default function ListPage() {
     fetchData();
   }, [router]);
 
-  if (loading) return <div className="p-10 text-center">正在加载内容... 🦁</div>;
+  if (loading) return <div className="p-10 text-center">loading... 🦁</div>;
 
   return (
     <div className="max-w-4xl mx-auto p-8 font-sans">
@@ -106,7 +106,7 @@ export default function ListPage() {
           <div key={item.id} className="p-6 border rounded-xl shadow-sm bg-white">
             {/* 这里的 item.caption_text 对应你数据库里的文本列 */}
             <p className="text-lg text-gray-800 mb-6 leading-relaxed">
-              {item.text}
+              {item.caption}
             </p>
 
             <div className="flex gap-3 border-t pt-4">
