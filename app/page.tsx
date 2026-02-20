@@ -87,7 +87,7 @@ export default function ListPage() {
 
       // 获取数据
       const { data, error } = await supabase
-        .from('caption_examples')
+        .from('community_contents')
         .select('*');
 
       if (error) {
