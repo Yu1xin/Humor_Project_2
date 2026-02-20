@@ -4,46 +4,49 @@ import { useState, useEffect } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 
+// 1. 在组件外部初始化，确保内部所有函数都能访问
 const supabase = createBrowserClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
 function InteractionButton({
-  value,
+  emoji,
   captionId,
   userId
 }: {
-  value: number;    // 对应你截图里的 vote_value (-1, 1 等)
-  captionId: string; // 对应你截图里的 caption_id (uuid)
+  emoji: string;
+  captionId: number;
   userId: string | undefined
 }) {
+  const [count, setCount] = useState(0);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleVote = async () => {
+    // 权限检查
     if (!userId) {
-      alert("请先登录！");
+      alert("Please log in to vote!");
       return;
     }
 
     setIsSubmitting(true);
 
-    // 重点：这里的字段名必须和你的截图完全一致
+    // 2. 向 caption_votes 表插入数据
     const { error } = await supabase
-      .from('caption_votes') // 请确认你的表名，截图上方被遮住了，假设是这个
+      .from('caption_votes')
       .insert([
         {
-          vote_value: value,      // 对应截图第2列
-          profile_id: userId,     // 对应截图第3列 (用户的UUID)
-          caption_id: captionId   // 对应截图第4列 (Caption的UUID)
+          caption_id: captionId,
+          user_id: userId,
+          vote_type: emoji // 确保你的数据库表有这些字段
         }
       ]);
 
     if (error) {
-      console.error("投票失败:", error.message);
-      alert("提交失败，请检查数据库权限 (RLS)");
+      console.error("Vote failed:", error.message);
+      alert("Vote failed. Check RLS or Network.");
     } else {
-      alert("投票成功！");
+      setCount(prev => prev + 1); // 成功后数字加1
     }
 
     setIsSubmitting(false);
@@ -53,9 +56,12 @@ function InteractionButton({
     <button
       onClick={handleVote}
       disabled={isSubmitting}
-      className="px-4 py-2 border rounded hover:bg-gray-100 disabled:opacity-50"
+      className={`flex items-center gap-1 hover:bg-gray-100 px-3 py-1 rounded-full transition border ${
+        isSubmitting ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'
+      }`}
     >
-      {value > 0 ? "👍 Upvote" : "👎 Downvote"}
+      <span>{emoji}</span>
+      <span className="text-sm text-gray-600 font-medium">{count}</span>
     </button>
   );
 }
@@ -63,42 +69,60 @@ function InteractionButton({
 export default function ListPage() {
   const [contexts, setContexts] = useState<any[]>([]);
   const [userId, setUserId] = useState<string | undefined>(undefined);
+  const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-    async function init() {
-      // 获取用户信息
+    async function checkAuthAndFetch() {
       const { data: { session } } = await supabase.auth.getSession();
+
       if (!session) {
         router.push('/login');
         return;
       }
-      setUserId(session.user.id); // 这里就是你要的 profile_id
 
-      // 获取数据
-      const { data } = await supabase.from('community_contexts').select('*');
-      setContexts(data || []);
+      // 保存当前登录用户的 ID 供投票使用
+      setUserId(session.user.id);
+
+      const { data, error } = await supabase
+        .from('community_contexts')
+        .select('*');
+
+      if (error) {
+        setError(error.message);
+      } else {
+        setContexts(data || []);
+      }
       setLoading(false);
     }
-    init();
+
+    checkAuthAndFetch();
   }, [router]);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div className="p-10 text-center">Loading Columbia Wisdom... 🦁</div>;
 
   return (
-    <div className="p-8">
-      {contexts.map((item) => (
-        <div key={item.id} className="mb-6 p-4 border rounded shadow">
-          <p className="text-lg mb-4">{item.content}</p>
+    <div className="max-w-4xl mx-auto p-8 font-sans">
+      <header className="mb-10 text-center">
+        <h1 className="text-4xl font-bold text-blue-600 mb-2">🦁 Columbia Contexts</h1>
+      </header>
 
-          <div className="flex gap-4">
-            {/* 关键点：将 item.id (caption_id) 和 userId (profile_id) 传下去 */}
-            <InteractionButton value={1} captionId={item.id} userId={userId} />
-            <InteractionButton value={-1} captionId={item.id} userId={userId} />
+      <div className="grid gap-6">
+        {contexts.map((item) => (
+          <div key={item.id} className="p-6 border rounded-xl shadow-sm bg-white">
+            <p className="text-lg text-gray-800 mb-6">{item.content}</p>
+
+            {/* 3. 这里的修改至关重要：传入 captionId 和 userId */}
+            <div className="flex gap-3 border-t pt-4">
+              <InteractionButton emoji="💗" captionId={item.id} userId={userId} />
+              <InteractionButton emoji="👎" captionId={item.id} userId={userId} />
+              <InteractionButton emoji="❓" captionId={item.id} userId={userId} />
+              <InteractionButton emoji="😂" captionId={item.id} userId={userId} />
+            </div>
           </div>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 }
