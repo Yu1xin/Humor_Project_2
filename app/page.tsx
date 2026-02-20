@@ -22,7 +22,7 @@ function InteractionButton({
 
   const handleVote = async () => {
     if (!userId) {
-      alert("请先登录！");
+      alert("login first！");
       return;
     }
 
@@ -50,12 +50,12 @@ function InteractionButton({
       );
 
     if (error) {
-      console.error("投票操作失败:", error.message);
+      console.error("voting failed:", error.message);
       // 如果报错 "onConflict" 相关，可能是数据库还没设唯一索引，此时 upsert 会退化为 insert
-      alert(`操作失败: ${error.message}`);
-    } else {
-      alert("操作成功（已更新或新增投票）！");
-    }
+      alert(`action failed: ${error.message}`);
+    } //else {
+      //alert("Voting success！");
+    //}
 
     setIsSubmitting(false);
   };
