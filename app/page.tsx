@@ -1,169 +1,71 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
-import { useRouter } from 'next/navigation';
+import { useState, useEffect } from 'react';
+import Sidebar from './components/Sidebar'; // 确保路径正确
 
-const supabase = createBrowserClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-// 1. 重构组件，使其支持“锁定”和“反悔”
-function VotingGroup({ captionId, userId }: { captionId: string; userId: string | undefined }) {
-  const [votedType, setVotedType] = useState<'up' | 'down' | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // 投票函数 (Upsert)
-  const handleVote = async (type: 'up' | 'down') => {
-    if (!userId || votedType) return;
-    setIsSubmitting(true);
-    const now = new Date().toISOString();
-
-    const { error } = await supabase
-      .from('caption_votes')
-      .upsert({
-        vote_value: type === 'up' ? 1 : -1,
-        profile_id: userId,
-        caption_id: captionId,
-        modified_datetime_utc: now,
-        created_datetime_utc: now
-      }, { onConflict: 'profile_id, caption_id' });
-
-    if (!error) setVotedType(type);
-    else alert(`Error: ${error.message}`);
-    setIsSubmitting(false);
-  };
-
-  // 反悔函数 (Delete)
-  const handleUndo = async () => {
-    if (!userId) return;
-    setIsSubmitting(true);
-
-    const { error } = await supabase
-      .from('caption_votes')
-      .delete()
-      .match({ profile_id: userId, caption_id: captionId });
-
-    if (!error) setVotedType(null);
-    else alert(`Undo failed: ${error.message}`);
-    setIsSubmitting(false);
-  };
-
-  return (
-    <div className="flex items-center gap-4">
-      {/* Upvote Button */}
-      <button
-        onClick={() => handleVote('up')}
-        disabled={isSubmitting || votedType !== null}
-        className={`flex items-center gap-2 px-6 py-2 rounded-full transition border ${
-          votedType === 'up'
-            ? 'bg-blue-600 text-white border-blue-600'
-            : 'bg-white text-slate-600 border-slate-200 disabled:opacity-50'
-        } ${!votedType && !isSubmitting ? 'hover:bg-blue-50 cursor-pointer' : 'cursor-default'}`}
-      >
-        <span>👍</span>
-        <span className="text-xs font-bold uppercase">{votedType === 'up' ? 'Upvoted' : 'Up'}</span>
-      </button>
-
-      {/* Downvote Button */}
-      <button
-        onClick={() => handleVote('down')}
-        disabled={isSubmitting || votedType !== null}
-        className={`flex items-center gap-2 px-6 py-2 rounded-full transition border ${
-          votedType === 'down'
-            ? 'bg-red-600 text-white border-red-600'
-            : 'bg-white text-slate-600 border-slate-200 disabled:opacity-50'
-        } ${!votedType && !isSubmitting ? 'hover:bg-red-50 cursor-pointer' : 'cursor-default'}`}
-      >
-        <span>👎</span>
-        <span className="text-xs font-bold uppercase">{votedType === 'down' ? 'Downvoted' : 'Down'}</span>
-      </button>
-
-      {/* Undo Link */}
-      {votedType && (
-        <button
-          onClick={handleUndo}
-          className="text-xs text-slate-400 underline hover:text-blue-600 transition-colors ml-2"
-        >
-          Reset Vote
-        </button>
-      )}
-    </div>
-  );
-}
-
-export default function ListPage() {
-  const [captionsList, setCaptionsList] = useState<any[]>([]);
-  const [userId, setUserId] = useState<string | undefined>(undefined);
+export default function VoteGallery() {
+  const [memes, setMemes] = useState<any[]>([]);
+  const [votedIds, setVotedIds] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
-  const [activeIndex, setActiveIndex] = useState(0);
-  const cardRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const router = useRouter();
 
-  useEffect(() => {
-    async function fetchData() {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) { router.push('/login'); return; }
-      setUserId(session.user.id);
+  // ... 你的 Fetch 数据逻辑保持不变 ...
 
-      const { data, error } = await supabase.from('captions').select('*, images(url)');
-      if (!error) setCaptionsList(data || []);
-      setLoading(false);
-    }
-    fetchData();
-  }, [router]);
+  // 💡 核心计算逻辑
+  const total = memes.length;
+  const currentCount = votedIds.size;
+  const progressPercentage = total > 0 ? (currentCount / total) * 100 : 0;
 
-  useEffect(() => {
-    const updateActive = () => {
-      const centerY = window.innerHeight / 2;
-      let bestIndex = 0;
-      let bestDist = Number.POSITIVE_INFINITY;
-      cardRefs.current.forEach((el, idx) => {
-        if (!el) return;
-        const rect = el.getBoundingClientRect();
-        const elCenter = rect.top + rect.height / 2;
-        const dist = Math.abs(elCenter - centerY);
-        if (dist < bestDist) { bestIndex = idx; bestDist = dist; }
-      });
-      setActiveIndex(bestIndex);
-    };
-    window.addEventListener('scroll', updateActive);
-    return () => window.removeEventListener('scroll', updateActive);
-  }, [captionsList]);
-
-  if (loading) return <div className="p-10 text-center font-mono">LOADING...</div>;
+  // 模拟投票后的回调函数（假设你的 VotingGroup 组件会通知父组件投票完成）
+  const handleVoteSuccess = (captionId: string) => {
+    setVotedIds(prev => new Set(prev).add(captionId));
+  };
 
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-transparent min-h-screen">
-      <header className="mb-16 text-center">
-        <h1 className="text-5xl font-black text-blue-600 mb-4 tracking-tight"> Meme Board</h1>
-      </header>
-
-      <div className="space-y-16">
-        {captionsList.map((item, index) => {
-          const isActive = index === activeIndex;
-          return (
-            <div
-              key={item.id}
-              ref={(el) => { cardRefs.current[index] = el; }}
-              className={`overflow-hidden border border-slate-200 rounded-[2.5rem] bg-transparent transition-all duration-500 ${
-                isActive ? 'shadow-2xl scale-105 opacity-100' : 'shadow-sm scale-90 opacity-40'
-              }`}
-            >
-              {item.images?.url && (
-                <div className="w-full aspect-video">
-                  <img src={item.images.url} alt="Meme" className="w-full h-full object-cover" />
-                </div>
-              )}
-              <div className="p-8">
-                <blockquote className="text-2xl text-blue-600 mb-8 font-semibold italic">"{item.content}"</blockquote>
-                <VotingGroup captionId={item.id} userId={userId} />
-              </div>
+    <div className="flex">
+      {/* 1. 顶部进度条 (Stick on Top) */}
+      <div className="fixed top-0 left-20 right-0 z-40 bg-white/80 backdrop-blur-md border-b border-slate-100 px-8 py-4 shadow-sm transition-all">
+        <div className="max-w-4xl mx-auto flex items-center gap-6">
+          {/* 数字显示 */}
+          <div className="flex-shrink-0">
+            <span className="text-sm font-bold text-slate-400 uppercase tracking-widest">Progress</span>
+            <div className="text-2xl font-black text-blue-600">
+              {currentCount} <span className="text-slate-300 text-lg">/ {total}</span>
             </div>
-          );
-        })}
+          </div>
+
+          {/* 进度条槽 */}
+          <div className="flex-1 h-3 bg-slate-100 rounded-full overflow-hidden">
+            {/* 实际进度颜色条 */}
+            <div
+              className="h-full bg-blue-500 transition-all duration-500 ease-out shadow-[0_0_10px_rgba(59,130,246,0.5)]"
+              style={{ width: `${progressPercentage}%` }}
+            />
+          </div>
+
+          {/* 百分比提示 */}
+          <div className="hidden sm:block text-right">
+            <span className="text-sm font-bold text-blue-500">{Math.round(progressPercentage)}%</span>
+          </div>
+        </div>
       </div>
+
+      {/* 2. 页面主体内容 (加一个 mt-24 避开顶部的 Bar) */}
+      <main className="flex-1 mt-24 p-8">
+        <div className="max-w-4xl mx-auto grid gap-12">
+          {memes.map((item, index) => (
+            <div key={item.id} className="relative group">
+              {/* 💡 每个 Meme 左上角的编号标签 */}
+              <div className="absolute -left-4 -top-4 w-10 h-10 bg-black text-white rounded-full flex items-center justify-center font-bold shadow-xl z-10 group-hover:scale-110 transition-transform">
+                {index + 1}
+              </div>
+
+              {/* 你的 VotingGroup 组件 */}
+              {/* 注意：你需要给它传一个 onVote 逻辑来更新进度 */}
+              {/* <VotingGroup data={item} onVote={() => handleVoteSuccess(item.id)} /> */}
+            </div>
+          ))}
+        </div>
+      </main>
     </div>
   );
 }
