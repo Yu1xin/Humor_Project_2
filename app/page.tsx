@@ -135,7 +135,7 @@ export default function ListPage() {
   if (loading) return <div className="p-10 text-center font-mono">LOADING...</div>;
 
   return (
-    <div className="max-w-3xl mx-auto p-6 bg-white min-h-screen">
+    <div className="max-w-3xl mx-auto p-6 bg-transparent min-h-screen">
       <header className="mb-16 text-center">
         <h1 className="text-5xl font-black text-slate-900 mb-4 tracking-tight">🦁 Meme Board</h1>
       </header>
