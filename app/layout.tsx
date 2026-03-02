@@ -9,7 +9,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         {/* 🚀 全局侧边栏 */}
         <aside className="w-64 bg-white border-r border-slate-200 flex flex-col p-6 sticky top-0 h-screen">
           <div className="text-2xl font-black text-blue-600 mb-10 px-2">
-            MemeLab 🦁
+            MemeLab
           </div>
 
           <nav className="flex flex-col gap-2 flex-1">

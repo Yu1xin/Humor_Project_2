@@ -20,7 +20,7 @@ export default function MainPage() {
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-slate-50 p-6 text-center">
-      <h1 className="text-4xl font-black text-slate-900 mb-2">Welcome back, 🦁</h1>
+      <h1 className="text-4xl font-black text-slate-900 mb-2">Welcome back, </h1>
       <p className="text-slate-500 mb-12 italic">{userEmail}</p>
 
       <div className="flex flex-col gap-4 w-full max-w-xs">
