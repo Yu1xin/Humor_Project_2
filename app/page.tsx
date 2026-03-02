@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 import { useRouter } from 'next/navigation';
 
@@ -126,8 +126,27 @@ export default function ListPage() {
       </header>
 
       <div className="space-y-12">
-        {captionsList.map((item) => (
-          <div key={item.id} className="group overflow-hidden border border-slate-200 rounded-[2rem] bg-white shadow-xl shadow-slate-200/50 transition-all hover:shadow-2xl">
+
+
+        {captionsList.map((item, index) => {
+          const isActive = index === activeIndex;
+
+          return (
+            <div
+              key={item.id}
+              ref={(el) => { cardRefs.current[index] = el; }}
+              className={`group overflow-hidden border border-slate-200 rounded-[2rem] bg-white transition-all duration-300
+                ${isActive ? 'shadow-2xl' : 'shadow-xl shadow-slate-200/50'}
+              `}
+              style={{
+                transform: `scale(${isActive ? 1.02 : 0.94})`,
+                opacity: isActive ? 1 : 0.72,
+              }}
+            >
+              {/* 原来的内容保持不变 */}
+
+
+
 
             {/* 1. 展示图片：从关联的 images 数据中提取 url */}
             {item.images?.url && (
