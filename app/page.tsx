@@ -137,7 +137,7 @@ export default function ListPage() {
   return (
     <div className="max-w-3xl mx-auto p-6 bg-transparent min-h-screen">
       <header className="mb-16 text-center">
-        <h1 className="text-5xl font-black text-slate-900 mb-4 tracking-tight">🦁 Meme Board</h1>
+        <h1 className="text-5xl font-black text-blue-600 mb-4 tracking-tight"> Meme Board</h1>
       </header>
 
       <div className="space-y-16">
