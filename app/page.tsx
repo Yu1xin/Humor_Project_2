@@ -147,7 +147,7 @@ export default function ListPage() {
             <div
               key={item.id}
               ref={(el) => { cardRefs.current[index] = el; }}
-              className={`overflow-hidden border border-slate-200 rounded-[2.5rem] bg-white transition-all duration-500 ${
+              className={`overflow-hidden border border-slate-200 rounded-[2.5rem] bg-transparent transition-all duration-500 ${
                 isActive ? 'shadow-2xl scale-105 opacity-100' : 'shadow-sm scale-90 opacity-40'
               }`}
             >
