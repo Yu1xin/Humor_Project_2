@@ -29,13 +29,15 @@ export default function MainPage() {
           Start voting memes 🫡
         </Link>
 
-        {/* Smaller Secondary Button */}
-        <Link href="/least-favored" className="text-slate-400 hover:text-red-500 text-sm font-medium transition-colors mt-4">
-          View Least Favored Memes
-        </Link>
 
         <Link href="/upload" className="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-4 px-8 rounded-2xl shadow-lg transition-all active:scale-95 text-center">
           Upload Picture & make New Meme 📸
+        </Link>
+
+
+        {/* Smaller Secondary Button */}
+        <Link href="/least-favored" className="text-slate-400 hover:text-red-500 text-sm font-medium transition-colors mt-4">
+          View Least Favored Memes
         </Link>
 
       </div>
