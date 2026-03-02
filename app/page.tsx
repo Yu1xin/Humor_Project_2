@@ -147,7 +147,7 @@ export default function ListPage() {
             <div
               key={item.id}
               ref={(el) => { cardRefs.current[index] = el; }}
-              className={`overflow-hidden border border-slate-200 rounded-[2.5rem] bg-white transition-all duration-500 ${
+              className={`overflow-hidden border border-slate-200 rounded-[2.5rem] bg-transparent transition-all duration-500 ${
                 isActive ? 'shadow-2xl scale-105 opacity-100' : 'shadow-sm scale-90 opacity-40'
               }`}
             >
@@ -157,7 +157,7 @@ export default function ListPage() {
                 </div>
               )}
               <div className="p-8">
-                <blockquote className="text-2xl text-slate-800 mb-8 font-semibold italic">"{item.content}"</blockquote>
+                <blockquote className="text-2xl text-blue-600 mb-8 font-semibold italic">"{item.content}"</blockquote>
                 <VotingGroup captionId={item.id} userId={userId} />
               </div>
             </div>
