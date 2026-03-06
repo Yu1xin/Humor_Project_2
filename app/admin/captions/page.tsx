@@ -14,7 +14,6 @@ export default function AdminCaptionsPage() {
 
   useEffect(() => {
     async function fetchCaptions() {
-      // 💡 使用你提供的确切列名：created_datetime_utc
       const { data, error } = await supabase
         .from('captions')
         .select('*')
