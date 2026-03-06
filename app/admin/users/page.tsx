@@ -18,7 +18,7 @@ export default function ManageUsersPage() {
       const { data, error } = await supabase
         .from('profiles')
         .select('*')
-        .order('created_at', { ascending: false });
+        .order('created_datetime_utc', { ascending: false });
 
       if (!error) {
         setProfiles(data || []);
@@ -67,7 +67,7 @@ export default function ManageUsersPage() {
                     )}
                   </td>
                   <td className="px-6 py-4 text-sm text-slate-500">
-                    {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                    {user.created_datetime_utc ? new Date(user.created_datetime_utc).toLocaleDateString() : 'N/A'}
                   </td>
                 </tr>
               ))}
