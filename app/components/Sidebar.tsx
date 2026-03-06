@@ -39,6 +39,7 @@ export default function Sidebar() {
             <SidebarLink href="/admin" icon="📊" label="Admin Stats" isOpen={isOpen} active={pathname === '/admin'} />
             <SidebarLink href="/admin/users" icon="👥" label="Manage Users" isOpen={isOpen} active={pathname === '/admin/users'} />
             <SidebarLink href="/admin/images" icon="🖼️" label="Manage Images" isOpen={isOpen} active={pathname === '/admin/images'} />
+            <SidebarLink href="/admin/captions" icon="📚" label="Manage Captions" isOpen={isOpen} active={pathname === '/admin/captions'} />
       </nav>
 
       {/* 底部退出 */}
