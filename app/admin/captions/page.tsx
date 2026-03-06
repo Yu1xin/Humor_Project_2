@@ -27,7 +27,7 @@ export default function AdminCaptions() {
         {captions.map(c => (
           <div key={c.id} className="bg-white p-4 rounded-xl shadow-sm border flex justify-between items-center">
             <div>
-              <p className="text-slate-800 font-medium italic">"{c.caption_text}"</p>
+              <p className="text-slate-800 font-medium italic">"{c.content}"</p>
               <p className="text-xs text-slate-400 mt-1">ID: {c.id}</p>
             </div>
             <button onClick={() => deleteCaption(c.id)} className="text-red-500 hover:text-red-700 font-bold px-4">Delete</button>
