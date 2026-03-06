@@ -49,4 +49,4 @@ export default function AdminImagesPage() {
       </div>
     </div>
   );
-}on>
+}
