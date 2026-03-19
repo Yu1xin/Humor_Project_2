@@ -142,11 +142,11 @@ export default function AdminAnalytics() {
                     #{idx + 1} {item.name}
                   </div>
                   <div className="text-[11px] text-slate-500 mt-1">
-                    avg likes {item.avgLikes.toFixed(6)} · captions {item.captionCount}
+                    avg likes {item.totalLikes.toFixed(6)} · captions {item.captionCount}
                   </div>
                 </div>
                 <div className="font-mono text-emerald-400 font-bold text-sm">
-                  {item.totalLikes.toFixed(6)}
+                  {item.avgLikes.toFixed(6)}
                 </div>
               </div>
             </div>
