@@ -22,11 +22,7 @@ export default function AdminDashboard() {
     { name: "Users Management", path: "/admin/users", icon: "👥" },
     { name: "Image Library", path: "/admin/images", icon: "🖼️" },
     { name: "AI Captions", path: "/admin/captions", icon: "📝" },
-    { name: "Humor Flavors & Steps", path: "#", icon: "🍦" },
-    { name: "LLM Models & Providers", path: "#", icon: "🤖" },
-    { name: "Prompt Chains", path: "#", icon: "⛓️" },
-    { name: "Signup Whitelist", path: "#", icon: "🛡️" },
-    { name: "Terms & Conditions", path: "#", icon: "📜" },
+    { name: "Data Analysis", path: "/admin/analytics", icon: "📊" },
   ];
 
   return (
