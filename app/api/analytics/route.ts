@@ -1,5 +1,33 @@
 // app/api/analytics/route.ts
 import { createClient } from '@supabase/supabase-js';
+async function fetchAllRows<T>(
+  supabase: any,
+  table: string,
+  columns: string,
+  pageSize = 1000
+): Promise<T[]> {
+  let allRows: T[] = [];
+  let from = 0;
+
+  while (true) {
+    const to = from + pageSize - 1;
+
+    const { data, error } = await supabase
+      .from(table)
+      .select(columns)
+      .range(from, to);
+
+    if (error) throw error;
+    if (!data || data.length === 0) break;
+
+    allRows = allRows.concat(data as T[]);
+
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return allRows;
+}
 
 type RegressionResult = {
   slope: number;
@@ -169,30 +197,24 @@ export async function GET() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const [captionsRes, flavorsRes, profilesRes] = await Promise.all([
-    supabase.from('captions').select(`
-      id,
-      like_count,
-      content,
-      image_id,
-      humor_flavor_id,
-      profile_id,
-      created_datetime_utc
-    `),
-    supabase.from('humor_flavors').select('id, description'),
-    supabase.from('profiles').select('id, first_name, last_name'),
+  const [captions, flavors, profiles] = await Promise.all([
+    fetchAllRows<CaptionRow>(
+      supabase,
+      'captions',
+      'id, like_count, content, image_id, humor_flavor_id, profile_id, created_datetime_utc'
+    ),
+    fetchAllRows<FlavorRow>(
+      supabase,
+      'humor_flavors',
+      'id, description'
+    ),
+    fetchAllRows<ProfileRow>(
+      supabase,
+      'profiles',
+      'id, first_name, last_name'
+    ),
   ]);
 
-  if (captionsRes.error || flavorsRes.error || profilesRes.error) {
-    return Response.json(
-      { error: captionsRes.error?.message || flavorsRes.error?.message || profilesRes.error?.message || 'Database query failed' },
-      { status: 500 }
-    );
-  }
-
-  const captions = (captionsRes.data ?? []) as CaptionRow[];
-  const flavors = (flavorsRes.data ?? []) as FlavorRow[];
-  const profiles = (profilesRes.data ?? []) as ProfileRow[];
 
   const flavorNameById = new Map<number, string>();
   for (const f of flavors) {
