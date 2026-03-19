@@ -1,6 +1,57 @@
 // app/api/analytics/route.ts
 import { createClient } from '@supabase/supabase-js';
-import { RegressionResult, FactorCard, MergedRow } from '@/types/analytics';
+
+type RegressionResult = {
+  slope: number;
+  intercept: number;
+  r2: number;
+  n: number;
+};
+
+type FactorCard = {
+  factor: string;
+  impact: number;
+  desc: string;
+};
+
+type LeaderboardCard = {
+  name: string;
+  totalLikes: number;
+  avgLikes: number;
+  captionCount: number;
+};
+
+type CaptionRow = {
+  id: string;
+  like_count: number | null;
+  content: string | null;
+  image_id: string | null;
+  humor_flavor_id: number | null;
+  profile_id: string | null;
+  created_datetime_utc: string | null;
+};
+
+type FlavorRow = {
+  id: number;
+  description: string | null;
+};
+
+type ProfileRow = {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+};
+
+type EnrichedCaptionRow = {
+  id: string;
+  like_count: number;
+  caption_char_len: number;
+  caption_word_count: number;
+  image_id: string | null;
+  humor_flavor_name: string;
+  profile_name: string;
+  created_bucket: string;
+};
 
 function safeMean(arr: number[]) {
   if (!arr.length) return 0;
@@ -10,47 +61,106 @@ function safeMean(arr: number[]) {
 function computeSimpleLinearRegression(points: { x: number; y: number }[]): RegressionResult {
   const n = points.length;
   if (n < 2) return { slope: 0, intercept: 0, r2: 0, n };
+
   const xs = points.map(p => p.x);
   const ys = points.map(p => p.y);
   const meanX = safeMean(xs);
   const meanY = safeMean(ys);
-  let numerator = 0, denominator = 0;
+
+  let numerator = 0;
+  let denominator = 0;
+
   for (const p of points) {
     numerator += (p.x - meanX) * (p.y - meanY);
     denominator += (p.x - meanX) ** 2;
   }
+
   const slope = denominator === 0 ? 0 : numerator / denominator;
   const intercept = meanY - slope * meanX;
-  let ssTot = 0, ssRes = 0;
+
+  let ssTot = 0;
+  let ssRes = 0;
+
   for (const p of points) {
     const yHat = intercept + slope * p.x;
     ssTot += (p.y - meanY) ** 2;
     ssRes += (p.y - yHat) ** 2;
   }
+
   const r2 = ssTot === 0 ? 0 : 1 - ssRes / ssTot;
+
   return { slope, intercept, r2, n };
 }
 
-function groupAverageImpact(rows: MergedRow[], key: 'llm_model_name' | 'humor_flavor_name'): FactorCard[] {
+function getTimeBucket(createdAt: string | null) {
+  if (!createdAt) return 'Unknown';
+
+  const hour = new Date(createdAt).getUTCHours();
+
+  if (hour >= 3 && hour <= 10) return 'Morning (3–10)';
+  if (hour >= 11 && hour <= 17) return 'Midday (11–17)';
+  return 'Evening (18–2)';
+}
+
+function groupAverageImpact(
+  rows: EnrichedCaptionRow[],
+  key: 'image_id' | 'humor_flavor_name' | 'profile_name' | 'created_bucket',
+  minGroupSize = 2
+): FactorCard[] {
   const overallMean = safeMean(rows.map(r => r.like_count));
   const groups = new Map<string, number[]>();
+
   for (const row of rows) {
     const groupName = row[key] ?? 'Unknown';
     if (!groups.has(groupName)) groups.set(groupName, []);
     groups.get(groupName)!.push(row.like_count);
   }
+
   const results: FactorCard[] = [];
+
   for (const [groupName, likes] of groups.entries()) {
-    if (likes.length < 2) continue;
+    if (likes.length < minGroupSize) continue;
+
     const avg = safeMean(likes);
     const uplift = avg - overallMean;
+
     results.push({
       factor: groupName,
       impact: uplift,
-      desc: `Avg likes ${avg.toFixed(2)} vs overall ${overallMean.toFixed(2)} (n=${likes.length})`,
+      desc: `Avg likes ${avg.toFixed(6)} vs overall ${overallMean.toFixed(6)} (n=${likes.length})`,
     });
   }
+
   return results.sort((a, b) => Math.abs(b.impact) - Math.abs(a.impact));
+}
+
+function buildLeaderboard(
+  rows: EnrichedCaptionRow[],
+  key: 'image_id' | 'humor_flavor_name' | 'profile_name',
+  minGroupSize = 1
+): LeaderboardCard[] {
+  const groups = new Map<string, number[]>();
+
+  for (const row of rows) {
+    const groupName = row[key] ?? 'Unknown';
+    if (!groups.has(groupName)) groups.set(groupName, []);
+    groups.get(groupName)!.push(row.like_count);
+  }
+
+  const results: LeaderboardCard[] = [];
+
+  for (const [name, likes] of groups.entries()) {
+    if (likes.length < minGroupSize) continue;
+
+    results.push({
+      name,
+      totalLikes: likes.reduce((a, b) => a + b, 0),
+      avgLikes: safeMean(likes),
+      captionCount: likes.length,
+    });
+  }
+
+  return results.sort((a, b) => b.totalLikes - a.totalLikes);
 }
 
 export async function GET() {
@@ -59,90 +169,87 @@ export async function GET() {
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  const [
-    captionsRes,
-    responsesRes,
-    modelsRes,
-    flavorsRes
-  ] = await Promise.all([
-    supabase.from('captions').select('caption_request_id, like_count, content'),
-    supabase.from('llm_model_responses').select('caption_request_id, processing_time_seconds, llm_model_id, humor_flavor_id'),
-    supabase.from('llm_models').select('id, name'),
-    supabase.from('humor_flavors').select('id, description')
+  const [captionsRes, flavorsRes, profilesRes] = await Promise.all([
+    supabase.from('captions').select(`
+      id,
+      like_count,
+      content,
+      image_id,
+      humor_flavor_id,
+      profile_id,
+      created_datetime_utc
+    `),
+    supabase.from('humor_flavors').select('id, description'),
+    supabase.from('profiles').select('id, first_name, last_name'),
   ]);
 
-  if (captionsRes.error || responsesRes.error || modelsRes.error || flavorsRes.error) {
+  if (captionsRes.error || flavorsRes.error || profilesRes.error) {
     return Response.json(
-      { error: captionsRes.error?.message || 'Database query failed' },
+      { error: captionsRes.error?.message || flavorsRes.error?.message || profilesRes.error?.message || 'Database query failed' },
       { status: 500 }
     );
   }
 
-  const captions = captionsRes.data ?? [];
-  const responses = responsesRes.data ?? [];
-  const models = modelsRes.data ?? [];
-  const flavors = flavorsRes.data ?? [];
-
-  const responseByCaptionRequestId = new Map<string, any>();
-  for (const r of responses) {
-    if (r.caption_request_id) responseByCaptionRequestId.set(r.caption_request_id, r);
-  }
-
-  const modelNameById = new Map<number, string>();
-  for (const m of models) {
-    if (m.id && m.name) modelNameById.set(m.id, m.name);
-  }
+  const captions = (captionsRes.data ?? []) as CaptionRow[];
+  const flavors = (flavorsRes.data ?? []) as FlavorRow[];
+  const profiles = (profilesRes.data ?? []) as ProfileRow[];
 
   const flavorNameById = new Map<number, string>();
   for (const f of flavors) {
-    if (f.id && f.description) flavorNameById.set(f.id, f.description);
+    flavorNameById.set(f.id, f.description ?? `Flavor ${f.id}`);
   }
 
-  const mergedRows: MergedRow[] = captions
-    .map((c: any) => {
-      const reqId = c.caption_request_id;
-      const response = reqId ? responseByCaptionRequestId.get(reqId) : undefined;
-      return {
-        like_count: Number(c.like_count ?? 0),
-        caption_char_len: (c.content ?? '').length,
-        caption_word_count: (c.content ?? '').trim().split(/\s+/).filter(Boolean).length,
-        processing_time_seconds:
-          response?.processing_time_seconds != null
-            ? Number(response.processing_time_seconds)
-            : null,
-        llm_model_name:
-          response?.llm_model_id != null
-            ? modelNameById.get(response.llm_model_id) ?? 'Unknown'
-            : null,
-        humor_flavor_name:
-          response?.humor_flavor_id != null
-            ? flavorNameById.get(response.humor_flavor_id) ?? 'Unknown'
-            : null,
-      };
-    })
-    .filter((row) => Number.isFinite(row.like_count) && Number.isFinite(row.caption_char_len));
+  const profileNameById = new Map<string, string>();
+  for (const p of profiles) {
+    const name = [p.first_name, p.last_name].filter(Boolean).join(' ').trim();
+    profileNameById.set(p.id, name || 'Unknown User');
+  }
 
-  const charPoints = mergedRows.map(r => ({ x: r.caption_char_len, y: r.like_count }));
-  const wordPoints = mergedRows.map(r => ({ x: r.caption_word_count, y: r.like_count }));
+  const rows: EnrichedCaptionRow[] = captions.map((c) => ({
+    id: c.id,
+    like_count: Number(c.like_count ?? 0),
+    caption_char_len: (c.content ?? '').length,
+    caption_word_count: (c.content ?? '').trim().split(/\s+/).filter(Boolean).length,
+    image_id: c.image_id,
+    humor_flavor_name:
+      c.humor_flavor_id != null
+        ? flavorNameById.get(c.humor_flavor_id) ?? `Flavor ${c.humor_flavor_id}`
+        : 'Unknown',
+    profile_name:
+      c.profile_id != null
+        ? profileNameById.get(c.profile_id) ?? 'Unknown User'
+        : 'Unknown User',
+    created_bucket: getTimeBucket(c.created_datetime_utc),
+  }))
+  .filter(r => Number.isFinite(r.like_count));
 
-  const numericSubset = mergedRows.filter(
-    r => r.processing_time_seconds != null && Number.isFinite(r.processing_time_seconds)
+  const charLenRegression = computeSimpleLinearRegression(
+    rows.map(r => ({ x: r.caption_char_len, y: r.like_count }))
   );
-  const procPoints = numericSubset.map(r => ({ x: r.processing_time_seconds!, y: r.like_count }));
 
-  const charLenRegression = computeSimpleLinearRegression(charPoints);
-  const wordCountRegression = computeSimpleLinearRegression(wordPoints);
-  const procTimeRegression = computeSimpleLinearRegression(procPoints);
+  const wordCountRegression = computeSimpleLinearRegression(
+    rows.map(r => ({ x: r.caption_word_count, y: r.like_count }))
+  );
 
-  const modelFactors = groupAverageImpact(mergedRows, 'llm_model_name').slice(0, 8);
-  const flavorFactors = groupAverageImpact(mergedRows, 'humor_flavor_name').slice(0, 8);
+  const imageFactors = groupAverageImpact(rows, 'image_id', 2).slice(0, 8);
+  const timeBucketFactors = groupAverageImpact(rows, 'created_bucket', 2);
+  const flavorFactors = groupAverageImpact(rows, 'humor_flavor_name', 2).slice(0, 8);
+  const profileFactors = groupAverageImpact(rows, 'profile_name', 2).slice(0, 8);
+
+  const topProfilesByLikes = buildLeaderboard(rows, 'profile_name', 1).slice(0, 8);
+  const topImagesByLikes = buildLeaderboard(rows, 'image_id', 1).slice(0, 8);
+  const topFlavorsByLikes = buildLeaderboard(rows, 'humor_flavor_name', 1).slice(0, 8);
 
   return Response.json({
-    sampleSize: mergedRows.length,
+    sampleSize: rows.length,
     charLenRegression,
     wordCountRegression,
-    procTimeRegression,
-    modelFactors,
+    imageFactors,
+    timeBucketFactors,
     flavorFactors,
+    profileFactors,
+    topProfilesByLikes,
+    topImagesByLikes,
+    topFlavorsByLikes,
   });
 }
