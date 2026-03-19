@@ -59,11 +59,11 @@ export default function AdminAnalytics() {
   const runMultiRegression = async () => {
     setMultiError(null);
     if (selectedVars.length === 0) {
-      setMultiError("please select 1 or two variable(s)");
+      setMultiError("please select 2 or 3 variables");
       return;
     }
-    if (selectedVars.length > 2) {
-      setMultiError("🤷we only support at most 2 variables at a time");
+    if (selectedVars.length > 3) {
+      setMultiError("🤷we only support at most 3 variables at a time");
       return;
     }
 
@@ -184,12 +184,12 @@ export default function AdminAnalytics() {
 
               <div className="bg-slate-950 p-5 rounded-xl font-mono text-base mb-4 border border-slate-700 overflow-x-auto">
                 Likes ≈ {multiResult.coefficients.slice(1).map((coef: number, idx: number) =>
-                  `${coef.toFixed(4)} × ${selectedVars[idx]}`
-                ).join(' + ')} + {multiResult.coefficients[0].toFixed(2)}
+                  `${coef.toFixed(6)} × ${selectedVars[idx]}`
+                ).join(' + ')} + {multiResult.coefficients[0].toFixed(6)}
               </div>
 
               <div className="text-sm text-slate-300 space-y-2">
-                <p><strong>R²：</strong> {multiResult.r2.toFixed(4)}</p>
+                <p><strong>R²：</strong> {multiResult.r2.toFixed(6)}</p>
                 <p><strong>number of effective subjects(captions)：</strong> {multiResult.n}</p>
                 <p className="text-xs text-slate-500 mt-3">
                   （interpretation of the parameter：having all other factors the same，having one unit increase in target variable，caption likes will change by how much）
@@ -227,16 +227,16 @@ export default function AdminAnalytics() {
 
               <div className="bg-slate-950 p-5 rounded-xl font-mono text-sm mb-4 border border-slate-700">
                 <span className="text-emerald-400 font-bold">Likes</span> ≈{' '}
-                <span className="text-blue-300">{currentReg.slope.toFixed(4)}</span> ×{' '}
+                <span className="text-blue-300">{currentReg.slope.toFixed(6)}</span> ×{' '}
                 <span className="text-blue-400">{label.unit}</span> +{' '}
-                <span className="text-purple-300">{currentReg.intercept.toFixed(2)}</span>
+                <span className="text-purple-300">{currentReg.intercept.toFixed(6)}</span>
               </div>
 
               <div className="text-xs text-slate-400 space-y-1.5">
-                <p>R² = {currentReg.r2.toFixed(4)}</p>
+                <p>R² = {currentReg.r2.toFixed(6)}</p>
                 <p>Samples = {currentReg.n}</p>
                 <p className="pt-2">
-                  Each extra {label.unit} is associated with {currentReg.slope.toFixed(4)}{' '}
+                  Each extra {label.unit} is associated with {currentReg.slope.toFixed(6)}{' '}
                   more/fewer likes on average.
                 </p>
               </div>
@@ -292,7 +292,7 @@ export default function AdminAnalytics() {
                           c.impact > 0 ? 'text-emerald-400' : 'text-red-400'
                         }`}
                       >
-                        {c.impact > 0 ? '+' : ''}{c.impact.toFixed(2)}
+                        {c.impact > 0 ? '+' : ''}{c.impact.toFixed(6)}
                       </span>
                     </div>
                   ))
@@ -323,7 +323,7 @@ export default function AdminAnalytics() {
                           c.impact > 0 ? 'text-emerald-400' : 'text-red-400'
                         }`}
                       >
-                        {c.impact > 0 ? '+' : ''}{c.impact.toFixed(2)}
+                        {c.impact > 0 ? '+' : ''}{c.impact.toFixed(6)}
                       </span>
                     </div>
                   ))
