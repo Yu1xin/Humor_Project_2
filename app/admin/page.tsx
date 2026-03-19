@@ -7,64 +7,35 @@ export default function AdminAnalytics() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  // 回归结果（3种）
+  // 单变量回归结果（用于按钮切换显示）
   const [charLenReg, setCharLenReg] = useState<RegressionResult>({ slope: 0, intercept: 0, r2: 0, n: 0 });
   const [wordCountReg, setWordCountReg] = useState<RegressionResult>({ slope: 0, intercept: 0, r2: 0, n: 0 });
   const [procTimeReg, setProcTimeReg] = useState<RegressionResult>({ slope: 0, intercept: 0, r2: 0, n: 0 });
 
-  // 其他状态
-  const [numericFactors, setNumericFactors] = useState<FactorCard[]>([]); // 现在只放处理时间相关系数
+  // 多变量回归结果
+  const [multiResult, setMultiResult] = useState<{ coefficients: number[]; r2: number; n: number } | null>(null);
+  const [multiLoading, setMultiLoading] = useState(false);
+  const [multiError, setMultiError] = useState<string | null>(null);
+
+  // 其他统计
+  const [sampleSize, setSampleSize] = useState(0);
   const [modelFactors, setModelFactors] = useState<FactorCard[]>([]);
   const [flavorFactors, setFlavorFactors] = useState<FactorCard[]>([]);
-  const [sampleSize, setSampleSize] = useState(0);
-  const [procTimeN, setProcTimeN] = useState(0); // 用于显示处理时间样本量
+  const [procTimeN, setProcTimeN] = useState(0);
 
-  // 当前选中的 X
+  // 单变量切换
   const [selectedX, setSelectedX] = useState<'char_len' | 'word_count' | 'proc_time'>('char_len');
 
-  useEffect(() => {
-    async function runAnalysis() {
-      try {
-        const res = await fetch('/api/analytics');
-        if (!res.ok) {
-          throw new Error(`API error: ${res.status}`);
-        }
-        const data = await res.json();
+  // 多变量选择
+  const [selectedVars, setSelectedVars] = useState<string[]>(['char_len']);
 
-        if (data.error) {
-          setError(data.error);
-          setLoading(false);
-          return;
-        }
+  const variables = [
+    { id: 'char_len', label: 'Caption Length (chars)', icon: '📏' },
+    { id: 'word_count', label: 'Word Count', icon: '📝' },
+    { id: 'proc_time', label: 'Processing Time (s)', icon: '⏱️' },
+  ];
 
-        setSampleSize(data.sampleSize);
-        setCharLenReg(data.charLenRegression);
-        setWordCountReg(data.wordCountRegression);
-        setProcTimeReg(data.procTimeRegression);
-        setModelFactors(data.modelFactors || []);
-        setFlavorFactors(data.flavorFactors || []);
-
-        // 处理时间相关系数（从 server 端也可以算，但这里简单复用 procTimeReg 的 n）
-        // 如果想精确 Pearson，可以在 route.ts 里再加一个字段返回
-        setProcTimeN(data.procTimeRegression.n || 0);
-        setNumericFactors([
-          {
-            factor: 'Processing Time (seconds)',
-            impact: 0, // 如果需要 Pearson，可以在 route.ts 加计算
-            desc: `Pearson correlation (n=${data.procTimeRegression.n || 0})`,
-          },
-        ]);
-
-        setLoading(false);
-      } catch (err) {
-        setError((err as Error).message || 'Failed to load analytics');
-        setLoading(false);
-      }
-    }
-    runAnalysis();
-  }, []);
-
-  // 当前回归
+  // 单变量切换显示的当前结果
   const currentReg = selectedX === 'char_len' ? charLenReg :
                      selectedX === 'word_count' ? wordCountReg :
                      procTimeReg;
@@ -77,8 +48,79 @@ export default function AdminAnalytics() {
 
   const label = xLabels[selectedX];
 
+  // 多变量复选框切换
+  const handleVarChange = (id: string) => {
+    setSelectedVars(prev =>
+      prev.includes(id) ? prev.filter(v => v !== id) : [...prev, id]
+    );
+  };
+
+  // 计算多变量回归
+  const runMultiRegression = async () => {
+    setMultiError(null);
+    if (selectedVars.length === 0) {
+      setMultiError("请至少选择一个变量");
+      return;
+    }
+    if (selectedVars.length > 2) {
+      setMultiError("当前最多支持同时分析 2 个变量");
+      return;
+    }
+
+    setMultiLoading(true);
+    try {
+      const res = await fetch('/api/analytics/multi-regression', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variables: selectedVars }),
+      });
+
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setMultiResult(data);
+    } catch (err: any) {
+      setMultiError(err.message || "计算失败，请稍后再试");
+    } finally {
+      setMultiLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    async function runAnalysis() {
+      try {
+        const res = await fetch('/api/analytics');
+        if (!res.ok) throw new Error(`API error: ${res.status}`);
+
+        const data = await res.json();
+        if (data.error) {
+          setError(data.error);
+          setLoading(false);
+          return;
+        }
+
+        setSampleSize(data.sampleSize);
+        setCharLenReg(data.charLenRegression);
+        setWordCountReg(data.wordCountRegression);
+        setProcTimeReg(data.procTimeRegression);
+        setModelFactors(data.modelFactors || []);
+        setFlavorFactors(data.flavorFactors || []);
+        setProcTimeN(data.procTimeRegression?.n || 0);
+
+        setLoading(false);
+      } catch (err) {
+        setError((err as Error).message || 'Failed to load analytics');
+        setLoading(false);
+      }
+    }
+    runAnalysis();
+  }, []);
+
   return (
     <div className="p-8 bg-slate-900 text-white rounded-[3rem] shadow-2xl mt-10 max-w-7xl mx-auto">
+      {/* 标题 */}
       <div className="flex items-center gap-4 mb-8">
         <div className="p-3 bg-blue-500 rounded-2xl text-3xl">📈</div>
         <div>
@@ -89,8 +131,8 @@ export default function AdminAnalytics() {
         </div>
       </div>
 
-      {loading && <div className="text-center text-slate-400">Loading analysis...</div>}
-      {error && <div className="text-center text-red-400">Error: {error}</div>}
+      {loading && <div className="text-center text-slate-400 py-10">Loading analysis...</div>}
+      {error && <div className="text-center text-red-400 py-10">Error: {error}</div>}
 
       {!loading && !error && (
         <>
@@ -98,8 +140,72 @@ export default function AdminAnalytics() {
             Total analyzed captions: <strong>{sampleSize}</strong>
           </div>
 
+          {/* 多变量选择区 */}
+          <div className="mb-10 bg-slate-800 p-6 rounded-3xl border border-slate-700">
+            <h3 className="text-lg font-bold text-indigo-400 mb-4">
+              多元回归：选择多个因素一起分析
+            </h3>
+
+            <div className="flex flex-wrap gap-6 mb-6">
+              {variables.map(v => (
+                <label key={v.id} className="flex items-center gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={selectedVars.includes(v.id)}
+                    onChange={() => handleVarChange(v.id)}
+                    className="w-5 h-5 accent-indigo-500 rounded"
+                  />
+                  <span className="text-slate-200 text-base">{v.icon} {v.label}</span>
+                </label>
+              ))}
+            </div>
+
+            <button
+              onClick={runMultiRegression}
+              disabled={multiLoading || selectedVars.length === 0}
+              className={`px-8 py-3 rounded-xl font-medium transition-all ${
+                multiLoading || selectedVars.length === 0
+                  ? 'bg-slate-600 cursor-not-allowed text-slate-400'
+                  : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md'
+              }`}
+            >
+              {multiLoading ? '计算中...' : '计算多元回归'}
+            </button>
+
+            {multiError && <p className="mt-4 text-red-400 text-sm">{multiError}</p>}
+          </div>
+
+          {/* 多元结果展示 */}
+          {multiResult && (
+            <div className="mb-10 bg-slate-800 p-6 rounded-3xl border border-slate-700">
+              <h3 className="text-lg font-bold text-indigo-400 mb-4">
+                多元回归结果：Likes ~ {selectedVars.map(id => variables.find(v => v.id === id)?.label || id).join(' + ')}
+              </h3>
+
+              <div className="bg-slate-950 p-5 rounded-xl font-mono text-base mb-4 border border-slate-700 overflow-x-auto">
+                Likes ≈ {multiResult.coefficients.slice(1).map((coef: number, idx: number) =>
+                  `${coef.toFixed(4)} × ${selectedVars[idx]}`
+                ).join(' + ')} + {multiResult.coefficients[0].toFixed(2)}
+              </div>
+
+              <div className="text-sm text-slate-300 space-y-2">
+                <p><strong>R²：</strong> {multiResult.r2.toFixed(4)}</p>
+                <p><strong>有效样本量：</strong> {multiResult.n}</p>
+                <p className="text-xs text-slate-500 mt-3">
+                  （每个系数的含义：在控制其他变量不变的情况下，该变量每增加 1 单位，likes 预期变化多少）
+                </p>
+              </div>
+
+              {multiResult.n < 30 && (
+                <p className="mt-4 text-yellow-400 text-sm">
+                  ⚠️ 样本量较小 ({multiResult.n})，结果仅供参考
+                </p>
+              )}
+            </div>
+          )}
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-            {/* 回归卡片 - 支持切换 */}
+            {/* 单变量线性回归卡片 */}
             <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700">
               <div className="flex flex-wrap gap-3 mb-6">
                 {Object.entries(xLabels).map(([key, { icon, name }]) => (
@@ -107,9 +213,7 @@ export default function AdminAnalytics() {
                     key={key}
                     onClick={() => setSelectedX(key as any)}
                     className={`px-5 py-2 rounded-xl text-sm font-medium transition-all ${
-                      selectedX === key
-                        ? 'bg-blue-600 text-white shadow-md'
-                        : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
+                      selectedX === key ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-700 hover:bg-slate-600 text-slate-200'
                     }`}
                   >
                     {icon} {name}
@@ -118,7 +222,7 @@ export default function AdminAnalytics() {
               </div>
 
               <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wide mb-4">
-                Linear Regression: Likes ~ {label.name}
+                单变量线性回归: Likes ~ {label.name}
               </h3>
 
               <div className="bg-slate-950 p-5 rounded-xl font-mono text-sm mb-4 border border-slate-700">
@@ -138,33 +242,27 @@ export default function AdminAnalytics() {
               </div>
             </div>
 
-            {/* Numeric Factor - 处理时间相关 */}
+            {/* Numeric Factor Correlation */}
             <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700">
               <h3 className="text-sm font-bold text-purple-400 uppercase tracking-wide mb-4">
                 Numeric Factor Correlation
               </h3>
               <div className="space-y-4">
-                {numericFactors.map((c) => (
-                  <div
-                    key={c.factor}
-                    className="flex justify-between items-center bg-slate-950 p-4 rounded-xl border border-slate-700"
-                  >
-                    <div>
-                      <div className="text-base font-medium text-slate-200">{c.factor}</div>
-                      <div className="text-xs text-slate-500 mt-1">{c.desc}</div>
+                <div className="flex justify-between items-center bg-slate-950 p-4 rounded-xl border border-slate-700">
+                  <div>
+                    <div className="text-base font-medium text-slate-200">Processing Time (seconds)</div>
+                    <div className="text-xs text-slate-500 mt-1">
+                      Pearson correlation (n={procTimeN})
                     </div>
-                    <span
-                      className={`font-mono text-xl font-bold ${
-                        c.impact > 0 ? 'text-emerald-400' : 'text-red-400'
-                      }`}
-                    >
-                      {c.impact.toFixed(3)}
-                    </span>
                   </div>
-                ))}
+                  <span className="font-mono text-xl font-bold text-slate-300">
+                    {/* 如果你想显示真实 Pearson，可在 route.ts 计算后返回 */}
+                    N/A (暂未计算)
+                  </span>
+                </div>
 
                 {procTimeN > 0 && procTimeN < 50 && (
-                  <div className="text-xs text-yellow-400 mt-3 bg-yellow-950/40 p-3 rounded-lg border border-yellow-700/50">
+                  <div className="text-xs text-yellow-400 bg-yellow-950/40 p-3 rounded-lg border border-yellow-700/50">
                     ⚠️ Only {procTimeN} records have processing time data. Many requests may still be pending or failed.
                   </div>
                 )}
@@ -194,8 +292,7 @@ export default function AdminAnalytics() {
                           c.impact > 0 ? 'text-emerald-400' : 'text-red-400'
                         }`}
                       >
-                        {c.impact > 0 ? '+' : ''}
-                        {c.impact.toFixed(2)}
+                        {c.impact > 0 ? '+' : ''}{c.impact.toFixed(2)}
                       </span>
                     </div>
                   ))
@@ -226,8 +323,7 @@ export default function AdminAnalytics() {
                           c.impact > 0 ? 'text-emerald-400' : 'text-red-400'
                         }`}
                       >
-                        {c.impact > 0 ? '+' : ''}
-                        {c.impact.toFixed(2)}
+                        {c.impact > 0 ? '+' : ''}{c.impact.toFixed(2)}
                       </span>
                     </div>
                   ))
