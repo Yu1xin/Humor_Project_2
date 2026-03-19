@@ -59,11 +59,11 @@ export default function AdminAnalytics() {
   const runMultiRegression = async () => {
     setMultiError(null);
     if (selectedVars.length === 0) {
-      setMultiError("请至少选择一个变量");
+      setMultiError("please select 1 or two variable(s)");
       return;
     }
     if (selectedVars.length > 2) {
-      setMultiError("当前最多支持同时分析 2 个变量");
+      setMultiError("🤷we only support at most 2 variables at a time");
       return;
     }
 
@@ -82,7 +82,7 @@ export default function AdminAnalytics() {
 
       setMultiResult(data);
     } catch (err: any) {
-      setMultiError(err.message || "计算失败，请稍后再试");
+      setMultiError(err.message || "calculation failed, try again later");
     } finally {
       setMultiLoading(false);
     }
@@ -143,7 +143,7 @@ export default function AdminAnalytics() {
           {/* 多变量选择区 */}
           <div className="mb-10 bg-slate-800 p-6 rounded-3xl border border-slate-700">
             <h3 className="text-lg font-bold text-indigo-400 mb-4">
-              多元回归：选择多个因素一起分析
+              Multi-variable regression
             </h3>
 
             <div className="flex flex-wrap gap-6 mb-6">
@@ -169,7 +169,7 @@ export default function AdminAnalytics() {
                   : 'bg-indigo-600 hover:bg-indigo-700 text-white shadow-md'
               }`}
             >
-              {multiLoading ? '计算中...' : '计算多元回归'}
+              {multiLoading ? 'Calculating...' : 'calculate multi variable regression'}
             </button>
 
             {multiError && <p className="mt-4 text-red-400 text-sm">{multiError}</p>}
@@ -179,7 +179,7 @@ export default function AdminAnalytics() {
           {multiResult && (
             <div className="mb-10 bg-slate-800 p-6 rounded-3xl border border-slate-700">
               <h3 className="text-lg font-bold text-indigo-400 mb-4">
-                多元回归结果：Likes ~ {selectedVars.map(id => variables.find(v => v.id === id)?.label || id).join(' + ')}
+                Multi-variable regression result：Likes ~ {selectedVars.map(id => variables.find(v => v.id === id)?.label || id).join(' + ')}
               </h3>
 
               <div className="bg-slate-950 p-5 rounded-xl font-mono text-base mb-4 border border-slate-700 overflow-x-auto">
@@ -190,15 +190,15 @@ export default function AdminAnalytics() {
 
               <div className="text-sm text-slate-300 space-y-2">
                 <p><strong>R²：</strong> {multiResult.r2.toFixed(4)}</p>
-                <p><strong>有效样本量：</strong> {multiResult.n}</p>
+                <p><strong>number of effective subjects(captions)：</strong> {multiResult.n}</p>
                 <p className="text-xs text-slate-500 mt-3">
-                  （每个系数的含义：在控制其他变量不变的情况下，该变量每增加 1 单位，likes 预期变化多少）
+                  （interpretation of the parameter：having all other factors the same，having one unit increase in target variable，caption likes will change by how much）
                 </p>
               </div>
 
               {multiResult.n < 30 && (
                 <p className="mt-4 text-yellow-400 text-sm">
-                  ⚠️ 样本量较小 ({multiResult.n})，结果仅供参考
+                  ⚠️ The sample size is smaller than 30 ({multiResult.n})，result may not be reliable
                 </p>
               )}
             </div>
@@ -222,7 +222,7 @@ export default function AdminAnalytics() {
               </div>
 
               <h3 className="text-sm font-bold text-blue-400 uppercase tracking-wide mb-4">
-                单变量线性回归: Likes ~ {label.name}
+                Simple regression analysis: Likes ~ {label.name}
               </h3>
 
               <div className="bg-slate-950 p-5 rounded-xl font-mono text-sm mb-4 border border-slate-700">
@@ -257,7 +257,7 @@ export default function AdminAnalytics() {
                   </div>
                   <span className="font-mono text-xl font-bold text-slate-300">
                     {/* 如果你想显示真实 Pearson，可在 route.ts 计算后返回 */}
-                    N/A (暂未计算)
+                    N/A (Not calculated yet)
                   </span>
                 </div>
 
@@ -303,7 +303,7 @@ export default function AdminAnalytics() {
             {/* Humor Flavor Impact */}
             <div className="bg-slate-800 p-6 rounded-3xl border border-slate-700">
               <h3 className="text-sm font-bold text-pink-400 uppercase tracking-wide mb-4 flex items-center gap-2">
-                <span>😂</span> Humor Flavor Impact
+                <span>🙂</span> Humor Flavor Impact
               </h3>
               <div className="space-y-3">
                 {flavorFactors.length === 0 ? (
