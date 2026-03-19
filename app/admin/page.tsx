@@ -2,9 +2,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
-
-type RegressionResult = { /* 和原来一样 */ };
-type FactorCard = { /* 和原来一样 */ };
+import { RegressionResult, FactorCard } from '@/types/analytics';
 
 export default function AdminAnalytics() {
   const [loading, setLoading] = useState(true);

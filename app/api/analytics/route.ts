@@ -1,27 +1,7 @@
 // app/api/analytics/route.ts
 import { createClient } from '@supabase/supabase-js';
+import { RegressionResult, FactorCard, MergedRow } from '@/types/analytics';
 
-type RegressionResult = {
-  slope: number;
-  intercept: number;
-  r2: number;
-  n: number;
-};
-
-type FactorCard = {
-  factor: string;
-  impact: number;
-  desc: string;
-};
-
-type MergedRow = {
-  like_count: number;
-  caption_char_len: number;
-  caption_word_count: number;
-  processing_time_seconds: number | null;
-  llm_model_name: string | null;
-  humor_flavor_name: string | null;
-};
 
 function safeMean(arr: number[]) {
   if (!arr.length) return 0;
