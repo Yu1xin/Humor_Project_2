@@ -1,36 +1,92 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Humor Analytics Dashboard
 
-## Getting Started
+An analytics dashboard built with Next.js and Supabase to help evaluate which content factors drive user engagement (likes) for captions.
 
-First, run the development server:
+## Overview
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+This project transforms raw caption data into actionable insights for non-technical users.  
+Instead of requiring SQL, R, or Stata, users can directly explore how different factors affect performance through an interactive dashboard.
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Features
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 1. Regression Analysis
+- Analyze relationship between:
+    - Caption length (characters / words)
+    - Number of likes
+- Helps identify optimal caption structure
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 2. Factor Impact Analysis
+- Evaluate how different factors influence engagement:
+    - Image
+    - Humor flavor
+    - Profile
+    - Time bucket
+- Uses: impact = avg(group) - avg(overall)
 
-## Learn More
 
-To learn more about Next.js, take a look at the following resources:
+### 3. Leaderboard
+- Rank top-performing:
+- Profiles
+- Images
+- Humor flavors
+- Supports multiple metrics:
+- Average likes
+- Total likes
+- Caption count
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 4. Metric Toggle
+- Switch between:
+- `avgLikes`
+- `totalLikes`
+- Dynamically updates:
+- Sorting
+- Displayed values
+- UI highlights
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## 🛠 Tech Stack
 
-## Deploy on Vercel
+- **Frontend:** Next.js (App Router)
+- **Backend / DB:** Supabase
+- **Language:** TypeScript
+- **Styling:** Tailwind CSS
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## ⚠️ Real-World Data Challenges Solved
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 1. Pagination Limit (Supabase 1000 rows)
+- Implemented custom pagination (`fetchAllRows`) to retrieve full dataset
+
+### 2. One-to-Many Join Explosion
+- Joins with `llm_responses` created duplicated rows (~110k)
+- Resolved by avoiding invalid regression variables
+
+### 3. Missing / Unknown Labels
+- Handled null or broken foreign keys with fallback labels: profileNameById.get(id) ?? User ${id.slice(0,8)}
+
+
+### 4. Data Filtering Decisions
+- Dropped unreliable variables (e.g., processing_time with low coverage)
+
+## 🎯 Purpose
+
+This dashboard is designed to:
+- Help teams make data-driven decisions about content creation
+- Identify what drives user engagement
+- Provide insights without requiring technical background
+
+## 📸 Demo
+
+(Add screenshots here)
+
+## 📦 Project Structure (Simplified)
+app/
+├── api/analytics # Data processing Calculation behind admin pages
+├── components # UI components sidebar
+├── admin # Admin dashboard
+├── main # Main feed
+├── upload # Allow users to upload images for AI processing
+├── Auth # login
+├── lib # profile link
+
+
+## 🧠 Key Insight
+This project focuses not just on visualization, but on turning messy real-world data into usable insights.
