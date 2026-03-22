@@ -4,96 +4,144 @@ import Link from 'next/link';
 import { useEffect, useState } from 'react';
 import { createBrowserClient } from '@supabase/ssr';
 
+type CaptionRow = {
+  id: string;
+  content: string | null;
+  images?: {
+    url?: string | null;
+  } | null;
+};
+
+type VoteRow = {
+  caption_id: string;
+  vote_value: number;
+};
+
 export default function LeastFavoredPage() {
   const [leastFavored, setLeastFavored] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [currentProfileId, setCurrentProfileId] = useState<string | null>(null);
   const [userVotes, setUserVotes] = useState<Record<string, number>>({});
   const [submittingId, setSubmittingId] = useState<string | null>(null);
+  const [pageError, setPageError] = useState<string | null>(null);
 
   const supabase = createBrowserClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
   );
 
-  useEffect(() => {
-    async function getLeastFavored() {
+  async function fetchAllRows(table: string, columns: string) {
+    const pageSize = 1000;
+    let from = 0;
+    let allRows: any[] = [];
+
+    while (true) {
+      const { data, error } = await supabase
+        .from(table)
+        .select(columns)
+        .order('id', { ascending: true })
+        .range(from, from + pageSize - 1);
+
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+
+      allRows = [...allRows, ...data];
+
+      if (data.length < pageSize) break;
+      from += pageSize;
+    }
+
+    return allRows;
+  }
+
+  async function getCurrentProfileId() {
+    const {
+      data: { user },
+      error: authError,
+    } = await supabase.auth.getUser();
+
+    if (authError) throw authError;
+    if (!user) return null;
+
+    // 先假设 profiles.id = auth user id
+    // 如果你的项目不是这种结构，这里再改
+    return user.id;
+  }
+
+  async function loadPageData() {
+    try {
       setLoading(true);
+      setPageError(null);
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      const profileId = await getCurrentProfileId();
+      setCurrentProfileId(profileId);
 
-      const authUserId = user?.id ?? null;
-      setCurrentUserId(authUserId);
+      const [votes, captions] = await Promise.all([
+        fetchAllRows('caption_votes', 'caption_id, vote_value'),
+        fetchAllRows('captions', 'id, content, images(url)'),
+      ]);
 
-      const { data: votes, error: vError } = await supabase
-        .from('caption_votes')
-        .select('caption_id, vote_value');
-
-      const { data: captions, error: cError } = await supabase
-        .from('captions')
-        .select('id, content, images(url)');
-
-      if (vError || cError || !captions) {
-        console.error('Fetch Error:', vError || cError);
-        setLoading(false);
-        return;
-      }
+      const typedCaptions = (captions || []) as CaptionRow[];
+      const typedVotes = (votes || []) as VoteRow[];
 
       const scoreMap = new Map<string, number>();
-      captions.forEach((c) => scoreMap.set(c.id, 0));
+      typedCaptions.forEach((c) => scoreMap.set(c.id, 0));
 
-      if (votes) {
-        votes.forEach((v) => {
-          if (scoreMap.has(v.caption_id)) {
-            const current = scoreMap.get(v.caption_id) || 0;
-            scoreMap.set(v.caption_id, current + v.vote_value);
-          }
-        });
-      }
+      typedVotes.forEach((v) => {
+        if (scoreMap.has(v.caption_id)) {
+          const current = scoreMap.get(v.caption_id) || 0;
+          scoreMap.set(v.caption_id, current + v.vote_value);
+        }
+      });
 
-      const allCaptionsWithScores = captions.map((c) => ({
+      const allCaptionsWithScores = typedCaptions.map((c) => ({
         ...c,
         totalScore: scoreMap.get(c.id) || 0,
       }));
 
-      const sorted = [...allCaptionsWithScores].sort(
-        (a, b) => a.totalScore - b.totalScore
-      );
+      const sorted = [...allCaptionsWithScores].sort((a, b) => {
+        if (a.totalScore !== b.totalScore) {
+          return a.totalScore - b.totalScore;
+        }
+        return a.id.localeCompare(b.id);
+      });
 
       const worst25 = sorted.slice(0, 25);
       setLeastFavored(worst25);
 
-      // 读取当前用户对这25个 meme 的投票
-      if (authUserId && worst25.length > 0) {
+      if (profileId && worst25.length > 0) {
         const captionIds = worst25.map((item) => item.id);
 
         const { data: myVotes, error: myVotesError } = await supabase
           .from('caption_votes')
           .select('caption_id, vote_value')
-          .eq('profile_id', authUserId)
+          .eq('profile_id', profileId)
           .in('caption_id', captionIds);
 
-        if (myVotesError) {
-          console.error('Fetch my votes error:', myVotesError);
-        } else {
-          const voteMap: Record<string, number> = {};
-          (myVotes || []).forEach((row) => {
-            voteMap[row.caption_id] = row.vote_value;
-          });
-          setUserVotes(voteMap);
-        }
-      }
+        if (myVotesError) throw myVotesError;
 
+        const voteMap: Record<string, number> = {};
+        (myVotes || []).forEach((row: any) => {
+          voteMap[row.caption_id] = row.vote_value;
+        });
+        setUserVotes(voteMap);
+      } else {
+        setUserVotes({});
+      }
+    } catch (error: any) {
+      console.error('Load page data error:', error);
+      setPageError(error.message || 'Failed to load page data.');
+    } finally {
       setLoading(false);
     }
+  }
 
-    getLeastFavored();
-  }, [supabase]);
+  useEffect(() => {
+    loadPageData();
+  }, []);
 
   const handleVote = async (captionId: string, voteValue: 1 | -1) => {
-    if (!currentUserId) {
+    if (!currentProfileId) {
       alert('Please log in first.');
       return;
     }
@@ -101,47 +149,37 @@ export default function LeastFavoredPage() {
     try {
       setSubmittingId(captionId);
 
-      const { error } = await supabase.from('caption_votes').upsert(
-        {
+      const existingVote = userVotes[captionId];
+
+      if (existingVote === undefined) {
+        const { error } = await supabase.from('caption_votes').insert({
           caption_id: captionId,
-          profile_id: currentUserId,
+          profile_id: currentProfileId,
           vote_value: voteValue,
-        },
-        {
-          onConflict: 'caption_id,profile_id',
-        }
-      );
+        });
 
-      if (error) throw error;
+        if (error) throw error;
+      } else {
+        const { error } = await supabase
+          .from('caption_votes')
+          .update({ vote_value: voteValue })
+          .eq('caption_id', captionId)
+          .eq('profile_id', currentProfileId);
 
-      setUserVotes((prev) => ({
-        ...prev,
-        [captionId]: voteValue,
-      }));
+        if (error) throw error;
+      }
 
-      setLeastFavored((prev) =>
-        prev.map((item) =>
-          item.id === captionId
-            ? {
-                ...item,
-                totalScore:
-                  item.totalScore -
-                  (userVotes[captionId] || 0) +
-                  voteValue,
-              }
-            : item
-        )
-      );
-    } catch (error) {
+      await loadPageData();
+    } catch (error: any) {
       console.error('Vote error:', error);
-      alert('Failed to submit vote.');
+      alert(error.message || 'Failed to submit vote.');
     } finally {
       setSubmittingId(null);
     }
   };
 
   const handleResetVote = async (captionId: string) => {
-    if (!currentUserId) {
+    if (!currentProfileId) {
       alert('Please log in first.');
       return;
     }
@@ -149,35 +187,18 @@ export default function LeastFavoredPage() {
     try {
       setSubmittingId(captionId);
 
-      const previousVote = userVotes[captionId] || 0;
-
       const { error } = await supabase
         .from('caption_votes')
         .delete()
         .eq('caption_id', captionId)
-        .eq('profile_id', currentUserId);
+        .eq('profile_id', currentProfileId);
 
       if (error) throw error;
 
-      setUserVotes((prev) => {
-        const next = { ...prev };
-        delete next[captionId];
-        return next;
-      });
-
-      setLeastFavored((prev) =>
-        prev.map((item) =>
-          item.id === captionId
-            ? {
-                ...item,
-                totalScore: item.totalScore - previousVote,
-              }
-            : item
-        )
-      );
-    } catch (error) {
+      await loadPageData();
+    } catch (error: any) {
       console.error('Reset vote error:', error);
-      alert('Failed to reset vote.');
+      alert(error.message || 'Failed to reset vote.');
     } finally {
       setSubmittingId(null);
     }
@@ -191,6 +212,20 @@ export default function LeastFavoredPage() {
     );
   }
 
+  if (pageError) {
+    return (
+      <div className="min-h-screen bg-white p-10">
+        <div className="max-w-3xl mx-auto">
+          <h1 className="text-2xl font-black text-red-600 mb-4">Something went wrong</h1>
+          <p className="text-slate-600 mb-6">{pageError}</p>
+          <Link href="/main" className="text-blue-600 hover:underline">
+            ← Back to Dashboard
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="max-w-7xl mx-auto px-6 py-8 bg-white min-h-screen">
       <header className="mb-10">
@@ -198,7 +233,7 @@ export default function LeastFavoredPage() {
           Bottom 25 Memes
         </h1>
         <p className="text-slate-500">
-          The 25 captions with the lowest total voting scores.
+          The 25 captions with the lowest total voting scores across the full database.
         </p>
       </header>
 
