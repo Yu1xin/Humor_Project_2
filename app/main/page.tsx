@@ -54,8 +54,8 @@ export default function MainPage() {
     {
       href: '/least-favored',
       icon: '📉',
-      label: 'Bottom 20%',
-      desc: 'See the lowest-performing memes',
+      label: 'Bottom 25 Did you contribute?',
+      desc: 'Memes with lowest 25 result for up-down vote',
       color: 'bg-rose-500 hover:bg-rose-600',
     },
     {
