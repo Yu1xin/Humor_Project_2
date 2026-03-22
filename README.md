@@ -1,5 +1,5 @@
 目前的阶段
-- 我least 25的页面如果进行vote，改动的meme就会消失
+- 我least 25的页面如果进行vote，改动的meme就会消失 (解决)
 - admin images 需要可以删除
 - user voting页面需要显示n/N的meme数量
 - main 加上一个大的 admin入口，一个admin的main，链接几个页面

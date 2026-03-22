@@ -259,7 +259,7 @@ export default function LeastFavoredPage() {
           Bottom 25 Memes
         </h1>
         <p className="text-slate-500">
-          The 25 captions with the lowest current like counts.
+          The 25 captions with the lowest current vote counts. (total up - total down)
         </p>
       </header>
 
